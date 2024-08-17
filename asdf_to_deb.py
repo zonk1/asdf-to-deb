@@ -6,6 +6,7 @@ import subprocess
 import logging
 import datetime
 import getpass
+import shlex
 
 from shlex import quote as shesc
 
@@ -16,7 +17,7 @@ def set_log_level(debug):
         logging.getLogger().setLevel(logging.DEBUG)
 
 def log_command(command):
-    logging.debug(f"Executing command: " + " ".join([shlex.quote(arg) for arg in command]))
+    logging.debug(f"Executing command: " + " ".join([shesc(arg) for arg in command]))
 
 def build_base_image():
     timestamp = datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
