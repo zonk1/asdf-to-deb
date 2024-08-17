@@ -69,8 +69,11 @@ def main():
 
     base_image = get_latest_base_image()
 
-    if not base_image or args.b:
-        logging.info("Base image not found or rebuild requested. Building base image...")
+    if not base_image:
+        logging.info("Base image not found. Building base image...")
+        base_image = build_base_image()
+    elif args.b:
+        logging.info("Rebuild requested. Building base image...")
         base_image = build_base_image()
     elif is_image_older_than_week(base_image):
         if input("Base image is older than a week. Rebuild? (y/n): ").lower() == 'y':
