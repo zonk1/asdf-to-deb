@@ -4,6 +4,9 @@ import argparse
 import os
 import subprocess
 import tempfile
+import logging
+
+logging.basicConfig(level=logging.INFO)
 
 def create_dockerfile(tool, version):
     return f"""
@@ -61,7 +64,7 @@ SHELL ["/bin/bash", "-l", "-c"]
 RUN asdf plugin add {args.tool}
 RUN asdf latest {args.tool}
 
-CMD ["/bin/bash", "-c", "asdf latest {args.tool}"]
+CMD ["/bin/bash", "-c", "source ~/.bashrc && asdf latest {args.tool}"]
 """
         with open(os.path.join(tmpdir, "Dockerfile"), "w") as f:
             f.write(initial_dockerfile)
@@ -71,9 +74,16 @@ CMD ["/bin/bash", "-c", "asdf latest {args.tool}"]
         subprocess.run(["docker", "build", "-t", initial_image_name, tmpdir], check=True)
 
         # Run Docker container to get the latest version
-        result = subprocess.run(["docker", "run", "--rm", initial_image_name], 
-                                capture_output=True, text=True, check=True)
-        version = result.stdout.strip()
+        try:
+            result = subprocess.run(["docker", "run", "--rm", initial_image_name], 
+                                    capture_output=True, text=True, check=True)
+            version = result.stdout.strip()
+            logging.info(f"Latest version of {args.tool}: {version}")
+        except subprocess.CalledProcessError as e:
+            logging.error(f"Error running Docker container: {e}")
+            logging.error(f"Container stdout: {e.stdout}")
+            logging.error(f"Container stderr: {e.stderr}")
+            raise
 
         # Clean up initial image
         subprocess.run(["docker", "rmi", initial_image_name], check=True)
