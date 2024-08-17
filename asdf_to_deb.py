@@ -9,6 +9,10 @@ import getpass
 
 logging.basicConfig(level=logging.ERROR)
 
+def set_log_level(debug):
+    if debug:
+        logging.getLogger().setLevel(logging.DEBUG)
+
 def log_command(command):
     logging.debug(f"Executing command: {command}")
 
