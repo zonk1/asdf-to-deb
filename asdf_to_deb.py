@@ -56,8 +56,12 @@ def create_container(tool_name, image_name, user):
         "--security-opt=no-new-privileges",
         f"--user={uid}:{gid}",
         image_name,
-        "tail", "-f", "/dev/null"
+        "bash", "-c", "source ~/.bashrc && tail -f /dev/null"
     ], check=True)
+
+def docker_exec(container_name, command):
+    return subprocess.run(["docker", "exec", container_name, "bash", "-c", f"source ~/.bashrc && {command}"], 
+                          capture_output=True, text=True, check=True)
 
 def main():
     parser = argparse.ArgumentParser(description="Package ASDF tool as Debian package")
@@ -83,22 +87,21 @@ def main():
 
     try:
         # Install ASDF plugin
-        subprocess.run(["docker", "exec", container_name, "asdf", "plugin", "add", args.tool_name], check=True)
+        docker_exec(container_name, f"asdf plugin add {args.tool_name}")
 
         # Get the version to install
         if args.v:
             version = args.v
         else:
-            result = subprocess.run(["docker", "exec", container_name, "asdf", "latest", args.tool_name], 
-                                    capture_output=True, text=True, check=True)
+            result = docker_exec(container_name, f"asdf latest {args.tool_name}")
             version = result.stdout.strip()
 
         # Install the tool
-        subprocess.run(["docker", "exec", container_name, "asdf", "install", args.tool_name, version], check=True)
-        subprocess.run(["docker", "exec", container_name, "asdf", "global", args.tool_name, version], check=True)
+        docker_exec(container_name, f"asdf install {args.tool_name} {version}")
+        docker_exec(container_name, f"asdf global {args.tool_name} {version}")
 
         # Create Debian package
-        subprocess.run(["docker", "exec", container_name, "bash", "-c", f"""
+        docker_exec(container_name, f"""
             mkdir -p /root/debian/DEBIAN /root/debian/usr
             echo "Package: {args.tool_name}" > /root/debian/DEBIAN/control
             echo "Version: {version}" >> /root/debian/DEBIAN/control
@@ -109,7 +112,7 @@ def main():
             echo "Description: {args.tool_name} packaged by ASDF" >> /root/debian/DEBIAN/control
             cp -R $HOME/.asdf/installs/{args.tool_name}/{version}/* /root/debian/usr/
             dpkg-deb --build /root/debian
-        """], check=True)
+        """)
 
         # Copy the Debian package to the host
         subprocess.run(["docker", "cp", f"{container_name}:/root/debian.deb", f"{args.tool_name}_{version}_amd64.deb"], check=True)
