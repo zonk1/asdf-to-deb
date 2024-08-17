@@ -119,30 +119,30 @@ def main():
     try:
         # Install ASDF plugin
         plugin_repo = args.tool_plugin_repo if args.tool_plugin_repo else ""
-        docker_exec(container_name, f"asdf plugin add {args.tool_name} {plugin_repo}")
+        docker_exec(container_name, f"asdf plugin add {shesc(args.tool_name)} {shesc(plugin_repo)}")
 
         # Get the version to install
         if args.v:
             version = args.v
         else:
-            result = docker_exec(container_name, f"asdf latest {args.tool_name}")
+            result = docker_exec(container_name, f"asdf latest {shesc(args.tool_name)}")
             version = result.stdout.strip()
 
         # Install the tool
-        docker_exec(container_name, f"asdf install {args.tool_name} {version}")
-        docker_exec(container_name, f"asdf global {args.tool_name} {version}")
+        docker_exec(container_name, f"asdf install {shesc(args.tool_name)} {shesc(version)}")
+        docker_exec(container_name, f"asdf global {shesc(args.tool_name)} {shesc(version)}")
 
         # Create Debian package
         docker_exec(container_name, f"""
             mkdir -p /root/debian/DEBIAN /root/debian/usr
-            echo "Package: {args.tool_name}" > /root/debian/DEBIAN/control
-            echo "Version: {version}" >> /root/debian/DEBIAN/control
+            echo "Package: {shesc(args.tool_name)}" > /root/debian/DEBIAN/control
+            echo "Version: {shesc(version)}" >> /root/debian/DEBIAN/control
             echo "Section: base" >> /root/debian/DEBIAN/control
             echo "Priority: optional" >> /root/debian/DEBIAN/control
             echo "Architecture: amd64" >> /root/debian/DEBIAN/control
             echo "Maintainer: ASDF-TO-DEB Packager <sleepy.tent0234@fastmail.com>" >> /root/debian/DEBIAN/control
-            echo "Description: {args.tool_name} packaged by ASDF" >> /root/debian/DEBIAN/control
-            cp -R $HOME/.asdf/installs/{args.tool_name}/{version}/* /root/debian/usr/
+            echo "Description: {shesc(args.tool_name)} packaged by ASDF" >> /root/debian/DEBIAN/control
+            cp -R $HOME/.asdf/installs/{shesc(args.tool_name)}/{shesc(version)}/* /root/debian/usr/
             dpkg-deb --build /root/debian
         """)
 
