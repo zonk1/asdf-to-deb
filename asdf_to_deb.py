@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 
-import shlex
 import argparse
 import os
 import subprocess
 import logging
 import datetime
 import getpass
+
+from shlex import quote as shesc
 
 logging.basicConfig(level=logging.ERROR)
 
