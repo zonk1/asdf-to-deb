@@ -69,11 +69,14 @@ def main():
 
     base_image = get_latest_base_image()
 
-    if args.b or not base_image:
+    if not base_image or args.b:
+        logging.info("Base image not found or rebuild requested. Building base image...")
         base_image = build_base_image()
     elif is_image_older_than_week(base_image):
         if input("Base image is older than a week. Rebuild? (y/n): ").lower() == 'y':
             base_image = build_base_image()
+    
+    logging.info(f"Using base image: {base_image}")
 
     container_name = f"asdf-to-deb-{args.tool_name}"
     create_container(args.tool_name, base_image, args.u)
