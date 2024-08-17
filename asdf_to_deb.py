@@ -129,6 +129,12 @@ def main():
             result = docker_exec(container_name, f"asdf latest {shesc(args.tool_name)}")
             version = result.stdout.strip()
 
+        # Check if the Debian package already exists
+        deb_path = os.path.join(args.t, "{args.tool_name}_{version}_amd64.deb")
+        if deb_path:
+            logging.info(f"Debian package for {args.tool_name} version {version} already exists in the target directory.")
+            return
+
         # Install the tool
         docker_exec(container_name, f"asdf install {shesc(args.tool_name)} {shesc(version)}")
         docker_exec(container_name, f"asdf global {shesc(args.tool_name)} {shesc(version)}")
