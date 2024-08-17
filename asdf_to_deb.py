@@ -159,8 +159,8 @@ def main():
     parser.add_argument("-v", metavar="version", help="Version of the tools to install")
     parser.add_argument("-u", metavar="user", default="asdf", help="User to remap root in container to")
     parser.add_argument("-d", action="store_true", help="Enable debug level logs")
-    parser.add_argument("-t", metavar="target_dir", default=".", help="Target directory for the created deb packages")
-    parser.add_argument("-p", metavar="parallel", type=int, default=4, help="Number of parallel builds (default: 4)")
+    parser.add_argument("-t", metavar="target_dir", default="/home/zonk/.scratchpad/asdf-to-deb-debs/", help="Target directory for the created deb packages")
+    parser.add_argument("-p", metavar="parallel", type=int, default=8, help="Number of parallel builds (default: 4)")
     args = parser.parse_args()
 
     set_log_level(args.d)
