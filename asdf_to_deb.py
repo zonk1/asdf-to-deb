@@ -91,6 +91,7 @@ def docker_exec(container_name, command):
 def main():
     parser = argparse.ArgumentParser(description="Package ASDF tool as Debian package")
     parser.add_argument("tool_name", help="ASDF-supported tool to package")
+    parser.add_argument("tool_plugin_repo", help="ASDF plugin git repo (for plugins not in official ASDF", nargs="?")
     parser.add_argument("-b", action="store_true", help="(re)build and keep base docker image")
     parser.add_argument("-v", metavar="version", help="Version of the tool to install")
     parser.add_argument("-u", metavar="user", default="asdf", help="User to remap root in container to")
@@ -116,7 +117,8 @@ def main():
 
     try:
         # Install ASDF plugin
-        docker_exec(container_name, f"asdf plugin add {args.tool_name}")
+        plugin_repo = args.tool_plugin_repo if args.tool_plugin_repo else ""
+        docker_exec(container_name, f"asdf plugin add {args.tool_name} {plugin_repo}")
 
         # Get the version to install
         if args.v:
