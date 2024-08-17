@@ -119,8 +119,8 @@ def main():
 
     try:
         # Install ASDF plugin
-        plugin_repo = args.tool_plugin_repo if args.tool_plugin_repo else ""
-        docker_exec(container_name, f"asdf plugin add {shesc(args.tool_name)} {shesc(plugin_repo)}")
+        plugin_repo = shesc(args.tool_plugin_repo) if args.tool_plugin_repo else ""
+        docker_exec(container_name, f"asdf plugin add {shesc(args.tool_name)} {plugin_repo}")
 
         # Get the version to install
         if args.v:
