@@ -41,7 +41,7 @@ def get_latest_base_image():
 def is_image_older_than_week(image_name):
     result = subprocess.run(["docker", "inspect", "-f", "{{.Created}}", image_name], 
                             capture_output=True, text=True, check=True)
-    created_date = datetime.datetime.strptime(result.stdout.strip(), "%Y-%m-%dT%H:%M:%S.%fZ")
+    created_date = datetime.datetime.strptime(result.stdout.strip().split('.')[0], "%Y-%m-%dT%H:%M:%S")
     return (datetime.datetime.now() - created_date).days > 7
 
 def create_container(tool_name, image_name, user):
