@@ -9,6 +9,9 @@ import getpass
 
 logging.basicConfig(level=logging.ERROR)
 
+def log_command(command):
+    logging.debug(f"Executing command: {command}")
+
 def build_base_image():
     timestamp = datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
     image_name = f"asdf-to-deb:{timestamp}"
