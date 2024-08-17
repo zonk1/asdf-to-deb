@@ -14,7 +14,7 @@ def build_base_image():
     image_name = f"asdf-to-deb:{timestamp}"
     
     dockerfile = f"""
-FROM debian:sid
+FROM debian:unstable
 
 RUN apt-get update && apt-get install -y curl git build-essential fakeroot dpkg-dev
 
