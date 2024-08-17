@@ -95,6 +95,7 @@ def main():
     parser.add_argument("-v", metavar="version", help="Version of the tool to install")
     parser.add_argument("-u", metavar="user", default="asdf", help="User to remap root in container to")
     parser.add_argument("-d", action="store_true", help="Enable debug level logs")
+    parser.add_argument("-t", metavar="target_dir", default=".", help="Target directory for the created deb package")
     args = parser.parse_args()
 
     set_log_level(args.d)
@@ -142,12 +143,16 @@ def main():
             dpkg-deb --build /root/debian
         """)
 
+        # Create target directory if it doesn't exist
+        os.makedirs(args.t, exist_ok=True)
+
         # Copy the Debian package to the host
-        command = ["docker", "cp", f"{container_name}:/root/debian.deb", f"{args.tool_name}_{version}_amd64.deb"]
+        target_path = os.path.join(args.t, f"{args.tool_name}_{version}_amd64.deb")
+        command = ["docker", "cp", f"{container_name}:/root/debian.deb", target_path]
         log_command(command)
         subprocess.run(command, check=True)
 
-        print(f"Debian package for {args.tool_name} version {version} has been created: {args.tool_name}_{version}_amd64.deb")
+        print(f"Debian package for {args.tool_name} version {version} has been created: {target_path}")
 
     finally:
         # Clean up
