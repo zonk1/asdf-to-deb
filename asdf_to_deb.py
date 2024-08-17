@@ -60,8 +60,13 @@ def create_container(tool_name, image_name, user):
     ], check=True)
 
 def docker_exec(container_name, command):
-    return subprocess.run(["docker", "exec", container_name, "bash", "-c", f"source ~/.bashrc && {command}"], 
-                          capture_output=True, text=True, check=True)
+    result = subprocess.run(["docker", "exec", container_name, "bash", "-c", f"source ~/.bashrc && {command}"], 
+                            capture_output=True, text=True)
+    if result.returncode != 0:
+        logging.error(f"Command failed: {command}")
+        logging.error(f"Error output: {result.stderr}")
+        result.check_returncode()  # This will raise a CalledProcessError
+    return result
 
 def main():
     parser = argparse.ArgumentParser(description="Package ASDF tool as Debian package")
