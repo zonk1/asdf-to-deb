@@ -135,7 +135,7 @@ def create_container(tool_name, image_name, user):
     uid = subprocess.run(["id", "-u", user], capture_output=True, text=True, check=True).stdout.strip()
     gid = subprocess.run(["id", "-g", user], capture_output=True, text=True, check=True).stdout.strip()
     
-    subprocess.run([
+    result = subprocess.run([
         "docker", "run", "-d", "--name", container_name,
         "--cap-drop=all",
         "--cap-add=CHOWN", "--cap-add=FOWNER", "--cap-add=SETUID", "--cap-add=SETGID",
@@ -143,4 +143,11 @@ def create_container(tool_name, image_name, user):
         f"--user={uid}:{gid}",
         image_name,
         "tail", "-f", "/dev/null"
-    ], check=True)
+    ], capture_output=True, text=True)
+    
+    if result.returncode != 0:
+        logging.error(f"Failed to create container: {container_name}")
+        logging.error(f"Error output: {result.stderr}")
+        result.check_returncode()  # This will raise a CalledProcessError
+    else:
+        logging.info(f"Container created successfully: {container_name}")
