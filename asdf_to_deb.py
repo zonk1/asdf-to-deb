@@ -45,37 +45,19 @@ def is_image_older_than_week(image_name):
     return (datetime.datetime.now() - created_date).days > 7
 
 def create_container(tool_name, image_name, user):
-    return f"""
-FROM debian:bullseye
-
-RUN apt-get update && apt-get install -y curl git build-essential fakeroot dpkg-dev
-
-RUN git clone https://github.com/asdf-vm/asdf.git ~/.asdf --branch v0.10.2
-RUN echo '. $HOME/.asdf/asdf.sh' >> ~/.bashrc
-RUN echo '. $HOME/.asdf/completions/asdf.bash' >> ~/.bashrc
-
-SHELL ["/bin/bash", "-l", "-c"]
-
-RUN asdf plugin add {tool}
-RUN asdf install {tool} {version}
-RUN asdf global {tool} {version}
-
-RUN mkdir -p /root/debian/DEBIAN
-RUN echo "Package: {tool}" > /root/debian/DEBIAN/control
-RUN echo "Version: {version}" >> /root/debian/DEBIAN/control
-RUN echo "Section: base" >> /root/debian/DEBIAN/control
-RUN echo "Priority: optional" >> /root/debian/DEBIAN/control
-RUN echo "Architecture: amd64" >> /root/debian/DEBIAN/control
-RUN echo "Maintainer: ASDF Packager <packager@example.com>" >> /root/debian/DEBIAN/control
-RUN echo "Description: {tool} packaged by ASDF" >> /root/debian/DEBIAN/control
-
-RUN mkdir -p /root/debian/usr/local
-RUN cp -R $HOME/.asdf/installs/{tool}/{version} /root/debian/usr/local/{tool}
-
-RUN dpkg-deb --build /root/debian
-
-CMD ["/bin/bash"]
-"""
+    container_name = f"asdf-to-deb-{tool_name}"
+    uid = subprocess.run(["id", "-u", user], capture_output=True, text=True, check=True).stdout.strip()
+    gid = subprocess.run(["id", "-g", user], capture_output=True, text=True, check=True).stdout.strip()
+    
+    subprocess.run([
+        "docker", "run", "-d", "--name", container_name,
+        "--cap-drop=all",
+        "--cap-add=CHOWN", "--cap-add=FOWNER", "--cap-add=SETUID", "--cap-add=SETGID",
+        "--security-opt=no-new-privileges",
+        f"--user={uid}:{gid}",
+        image_name,
+        "tail", "-f", "/dev/null"
+    ], check=True)
 
 def main():
     parser = argparse.ArgumentParser(description="Package ASDF tool as Debian package")
