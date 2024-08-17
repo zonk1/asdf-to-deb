@@ -89,7 +89,10 @@ def main():
     parser.add_argument("-b", action="store_true", help="(re)build and keep base docker image")
     parser.add_argument("-v", metavar="version", help="Version of the tool to install")
     parser.add_argument("-u", metavar="user", default="asdf", help="User to remap root in container to")
+    parser.add_argument("-d", action="store_true", help="Enable debug level logs")
     args = parser.parse_args()
+
+    set_log_level(args.d)
 
     base_image = get_latest_base_image()
 
