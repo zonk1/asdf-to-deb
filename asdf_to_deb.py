@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import shlex
 import argparse
 import os
 import subprocess
@@ -14,7 +15,7 @@ def set_log_level(debug):
         logging.getLogger().setLevel(logging.DEBUG)
 
 def log_command(command):
-    logging.debug(f"Executing command: {command}")
+    logging.debug(f"Executing command: " + " ".join([shlex.quote(arg) for arg in command]))
 
 def build_base_image():
     timestamp = datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
@@ -70,9 +71,9 @@ def create_container(tool_name, image_name, user):
         "--cap-drop=all",
         "--cap-add=CHOWN", "--cap-add=FOWNER", "--cap-add=SETUID", "--cap-add=SETGID",
         "--security-opt=no-new-privileges",
-        f"--user={uid}:{gid}",
+        #f"--user={uid}:{gid}",
         image_name,
-        "bash", "-c", "source ~/.bashrc && tail -f /dev/null"
+        "tail", "-f", "/dev/null",
     ]
     log_command(command)
     subprocess.run(command, check=True)
@@ -135,7 +136,7 @@ def main():
             echo "Section: base" >> /root/debian/DEBIAN/control
             echo "Priority: optional" >> /root/debian/DEBIAN/control
             echo "Architecture: amd64" >> /root/debian/DEBIAN/control
-            echo "Maintainer: ASDF Packager <packager@example.com>" >> /root/debian/DEBIAN/control
+            echo "Maintainer: ASDF-TO-DEB Packager <sleepy.tent0234@fastmail.com>" >> /root/debian/DEBIAN/control
             echo "Description: {args.tool_name} packaged by ASDF" >> /root/debian/DEBIAN/control
             cp -R $HOME/.asdf/installs/{args.tool_name}/{version}/* /root/debian/usr/
             dpkg-deb --build /root/debian
