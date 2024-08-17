@@ -7,6 +7,8 @@ import logging
 import datetime
 import getpass
 import shlex
+import concurrent.futures
+from tools import tools
 
 from shlex import quote as shesc
 
@@ -152,14 +154,13 @@ def build_tool(tool_name, tool_plugin_repo, version, target_dir, base_image, use
         subprocess.run(command, check=True)
 
 def main():
-    parser = argparse.ArgumentParser(description="Package ASDF tool as Debian package")
-    parser.add_argument("tool_name", help="ASDF-supported tool to package")
-    parser.add_argument("tool_plugin_repo", help="ASDF plugin git repo (for plugins not in official ASDF", nargs="?")
+    parser = argparse.ArgumentParser(description="Package ASDF tools as Debian packages")
     parser.add_argument("-b", action="store_true", help="(re)build and keep base docker image")
-    parser.add_argument("-v", metavar="version", help="Version of the tool to install")
+    parser.add_argument("-v", metavar="version", help="Version of the tools to install")
     parser.add_argument("-u", metavar="user", default="asdf", help="User to remap root in container to")
     parser.add_argument("-d", action="store_true", help="Enable debug level logs")
-    parser.add_argument("-t", metavar="target_dir", default=".", help="Target directory for the created deb package")
+    parser.add_argument("-t", metavar="target_dir", default=".", help="Target directory for the created deb packages")
+    parser.add_argument("-p", metavar="parallel", type=int, default=4, help="Number of parallel builds (default: 4)")
     args = parser.parse_args()
 
     set_log_level(args.d)
@@ -175,7 +176,21 @@ def main():
     
     logging.info(f"Using base image: {base_image}")
 
-    build_tool(args.tool_name, args.tool_plugin_repo, args.v, args.t, base_image, args.u)
+    with concurrent.futures.ThreadPoolExecutor(max_workers=args.p) as executor:
+        futures = []
+        for tool_name, tool_plugin_repo in tools:
+            future = executor.submit(build_tool, tool_name, tool_plugin_repo, args.v, args.t, base_image, args.u)
+            futures.append(future)
+        
+        for future in concurrent.futures.as_completed(futures):
+            try:
+                result = future.result()
+                if result:
+                    logging.info(f"Successfully built: {result}")
+                else:
+                    logging.warning("Failed to build a package")
+            except Exception as e:
+                logging.error(f"An error occurred: {str(e)}")
 
 if __name__ == "__main__":
     main()
