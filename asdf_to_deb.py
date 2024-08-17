@@ -36,7 +36,7 @@ def get_latest_base_image():
     result = subprocess.run(["docker", "images", "asdf-to-deb", "--format", "{{.Tag}}"], 
                             capture_output=True, text=True, check=True)
     tags = result.stdout.strip().split('\n')
-    return f"asdf-to-deb:{max(tags)}" if tags else None
+    return f"asdf-to-deb:{max(tags)}" if tags and tags[0] else None
 
 def is_image_older_than_week(image_name):
     result = subprocess.run(["docker", "inspect", "-f", "{{.Created}}", image_name], 
@@ -69,11 +69,8 @@ def main():
 
     base_image = get_latest_base_image()
 
-    if not base_image:
-        logging.info("Base image not found. Building base image...")
-        base_image = build_base_image()
-    elif args.b:
-        logging.info("Rebuild requested. Building base image...")
+    if not base_image or args.b:
+        logging.info("Base image not found or rebuild requested. Building base image...")
         base_image = build_base_image()
     elif is_image_older_than_week(base_image):
         if input("Base image is older than a week. Rebuild? (y/n): ").lower() == 'y':
