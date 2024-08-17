@@ -28,28 +28,37 @@ SHELL ["/bin/bash", "-l", "-c"]
     with open("Dockerfile", "w") as f:
         f.write(dockerfile)
     
-    subprocess.run(["docker", "build", "-t", image_name, "."], check=True)
+    command = ["docker", "build", "-t", image_name, "."]
+    log_command(command)
+    subprocess.run(command, check=True)
     os.remove("Dockerfile")
     return image_name
 
 def get_latest_base_image():
-    result = subprocess.run(["docker", "images", "asdf-to-deb", "--format", "{{.Tag}}"], 
-                            capture_output=True, text=True, check=True)
+    command = ["docker", "images", "asdf-to-deb", "--format", "{{.Tag}}"]
+    log_command(command)
+    result = subprocess.run(command, capture_output=True, text=True, check=True)
     tags = result.stdout.strip().split('\n')
     return f"asdf-to-deb:{max(tags)}" if tags and tags[0] else None
 
 def is_image_older_than_week(image_name):
-    result = subprocess.run(["docker", "inspect", "-f", "{{.Created}}", image_name], 
-                            capture_output=True, text=True, check=True)
+    command = ["docker", "inspect", "-f", "{{.Created}}", image_name]
+    log_command(command)
+    result = subprocess.run(command, capture_output=True, text=True, check=True)
     created_date = datetime.datetime.strptime(result.stdout.strip().split('.')[0], "%Y-%m-%dT%H:%M:%S")
     return (datetime.datetime.now() - created_date).days > 7
 
 def create_container(tool_name, image_name, user):
     container_name = f"asdf-to-deb-{tool_name}"
-    uid = subprocess.run(["id", "-u", user], capture_output=True, text=True, check=True).stdout.strip()
-    gid = subprocess.run(["id", "-g", user], capture_output=True, text=True, check=True).stdout.strip()
+    uid_command = ["id", "-u", user]
+    log_command(uid_command)
+    uid = subprocess.run(uid_command, capture_output=True, text=True, check=True).stdout.strip()
     
-    subprocess.run([
+    gid_command = ["id", "-g", user]
+    log_command(gid_command)
+    gid = subprocess.run(gid_command, capture_output=True, text=True, check=True).stdout.strip()
+    
+    command = [
         "docker", "run", "-d", "--name", container_name,
         "--cap-drop=all",
         "--cap-add=CHOWN", "--cap-add=FOWNER", "--cap-add=SETUID", "--cap-add=SETGID",
@@ -57,11 +66,14 @@ def create_container(tool_name, image_name, user):
         f"--user={uid}:{gid}",
         image_name,
         "bash", "-c", "source ~/.bashrc && tail -f /dev/null"
-    ], check=True)
+    ]
+    log_command(command)
+    subprocess.run(command, check=True)
 
 def docker_exec(container_name, command):
-    result = subprocess.run(["docker", "exec", container_name, "bash", "-c", f"source ~/.bashrc && {command}"], 
-                            capture_output=True, text=True)
+    docker_command = ["docker", "exec", container_name, "bash", "-c", f"source ~/.bashrc && {command}"]
+    log_command(docker_command)
+    result = subprocess.run(docker_command, capture_output=True, text=True)
     if result.returncode != 0:
         logging.error(f"Command failed: {command}")
         logging.error(f"Error output: {result.stderr}")
@@ -120,13 +132,17 @@ def main():
         """)
 
         # Copy the Debian package to the host
-        subprocess.run(["docker", "cp", f"{container_name}:/root/debian.deb", f"{args.tool_name}_{version}_amd64.deb"], check=True)
+        command = ["docker", "cp", f"{container_name}:/root/debian.deb", f"{args.tool_name}_{version}_amd64.deb"]
+        log_command(command)
+        subprocess.run(command, check=True)
 
         print(f"Debian package for {args.tool_name} version {version} has been created: {args.tool_name}_{version}_amd64.deb")
 
     finally:
         # Clean up
-        subprocess.run(["docker", "rm", "-f", container_name], check=True)
+        command = ["docker", "rm", "-f", container_name]
+        log_command(command)
+        subprocess.run(command, check=True)
 
 if __name__ == "__main__":
     main()
