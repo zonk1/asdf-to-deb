@@ -7,7 +7,7 @@ import logging
 import datetime
 import getpass
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.ERROR)
 
 def build_base_image():
     timestamp = datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
