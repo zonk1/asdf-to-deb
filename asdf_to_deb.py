@@ -44,16 +44,41 @@ def main():
     parser.add_argument("output_dir", help="Directory to store the resulting Debian package")
     args = parser.parse_args()
 
-    # Get the latest version of the tool
-    result = subprocess.run(["asdf", "latest", args.tool], capture_output=True, text=True)
-    if result.returncode != 0:
-        print(f"Error getting latest version of {args.tool}: {result.stderr}")
-        return
-    version = result.stdout.strip()
-
     # Create a temporary directory for Docker context
     with tempfile.TemporaryDirectory() as tmpdir:
-        # Write Dockerfile
+        # Write initial Dockerfile to get the latest version
+        initial_dockerfile = f"""
+FROM debian:bullseye
+
+RUN apt-get update && apt-get install -y curl git
+
+RUN git clone https://github.com/asdf-vm/asdf.git ~/.asdf --branch v0.10.2
+RUN echo '. $HOME/.asdf/asdf.sh' >> ~/.bashrc
+RUN echo '. $HOME/.asdf/completions/asdf.bash' >> ~/.bashrc
+
+SHELL ["/bin/bash", "-l", "-c"]
+
+RUN asdf plugin add {args.tool}
+RUN asdf latest {args.tool}
+
+CMD ["/bin/bash", "-c", "asdf latest {args.tool}"]
+"""
+        with open(os.path.join(tmpdir, "Dockerfile"), "w") as f:
+            f.write(initial_dockerfile)
+
+        # Build initial Docker image
+        initial_image_name = f"{args.tool}-version-checker"
+        subprocess.run(["docker", "build", "-t", initial_image_name, tmpdir], check=True)
+
+        # Run Docker container to get the latest version
+        result = subprocess.run(["docker", "run", "--rm", initial_image_name], 
+                                capture_output=True, text=True, check=True)
+        version = result.stdout.strip()
+
+        # Clean up initial image
+        subprocess.run(["docker", "rmi", initial_image_name], check=True)
+
+        # Write Dockerfile for building the package
         dockerfile_content = create_dockerfile(args.tool, version)
         with open(os.path.join(tmpdir, "Dockerfile"), "w") as f:
             f.write(dockerfile_content)
