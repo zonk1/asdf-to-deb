@@ -28,7 +28,7 @@ def build_base_image():
     dockerfile = f"""
 FROM debian:unstable
 
-RUN apt-get update && apt-get install -y curl git build-essential fakeroot dpkg-dev
+RUN apt-get update && apt-get install -y curl git build-essential fakeroot dpkg-dev unzip
 
 RUN git clone https://github.com/asdf-vm/asdf.git ~/.asdf --branch v0.10.2
 RUN echo '. $HOME/.asdf/asdf.sh' >> ~/.bashrc
@@ -155,6 +155,8 @@ def build_tool(tool_name, tool_plugin_repo, version, target_dir, base_image, use
 
 def main():
     parser = argparse.ArgumentParser(description="Package ASDF tools as Debian packages")
+    parser.add_argument("tool_name", help="ASDF-supported tool to package (if not given config tools.py is used", nargs="?")
+    parser.add_argument("tool_plugin_repo", help="Tool asdf plugin repo for single tool build (optional)", nargs="?")
     parser.add_argument("-b", action="store_true", help="(re)build and keep base docker image")
     parser.add_argument("-v", metavar="version", help="Version of the tools to install")
     parser.add_argument("-u", metavar="user", default="asdf", help="User to remap root in container to")
@@ -176,9 +178,14 @@ def main():
     
     logging.info(f"Using base image: {base_image}")
 
+    if (args.tool_name):
+        tools_to_build = ((args.tool_name, args.tool_plugin_repo),)
+    else:
+        tools_to_build = tools
+
     with concurrent.futures.ThreadPoolExecutor(max_workers=args.p) as executor:
         futures = []
-        for tool_name, tool_plugin_repo in tools:
+        for tool_name, tool_plugin_repo in tools_to_build:
             future = executor.submit(build_tool, tool_name, tool_plugin_repo, args.v, args.t, base_image, args.u)
             futures.append(future)
         
