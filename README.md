@@ -53,3 +53,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
+
+## Thanks
+
+Most of the project was written by [Aider Chat](https://aider.chat/) using [Anthropic models](https://www.anthropic.com/)
