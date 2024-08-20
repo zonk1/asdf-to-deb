@@ -1,3 +1,4 @@
 .aider*
 AIDER_PROMPTS.md
 Dockerfile
+tools.py
