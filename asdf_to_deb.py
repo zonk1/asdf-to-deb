@@ -8,7 +8,10 @@ import datetime
 import getpass
 import shlex
 import concurrent.futures
-from tools import tools
+try:
+    from tools import tools
+except ImportError:
+    tools = ()
 
 from shlex import quote as shesc
 
@@ -178,10 +181,13 @@ def main():
     
     logging.info(f"Using base image: {base_image}")
 
-    if (args.tool_name):
+    if args.tool_name:
         tools_to_build = ((args.tool_name, args.tool_plugin_repo),)
-    else:
+    elif tools:
         tools_to_build = tools
+    else:
+        logging.error("No tool specified and tools.py not found or empty. Please specify a tool or create a valid tools.py file.")
+        return
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=args.p) as executor:
         futures = []
