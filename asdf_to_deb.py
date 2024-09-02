@@ -24,12 +24,12 @@ def set_log_level(debug):
 def log_command(command):
     logging.debug(f"Executing command: " + " ".join([shesc(arg) for arg in command]))
 
-def build_base_image():
+def build_base_image(force=False):
     timestamp = datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
     image_name = f"asdf-to-deb:{timestamp}"
-    
+    from_image= "debian:unstable"
     dockerfile = f"""
-FROM debian:unstable
+FROM {from_image}
 
 RUN apt-get update && apt-get install -y curl git build-essential fakeroot dpkg-dev unzip
 
@@ -43,7 +43,12 @@ SHELL ["/bin/bash", "-l", "-c"]
     with open("Dockerfile", "w") as f:
         f.write(dockerfile)
     
-    command = ["docker", "build", "-t", image_name, "."]
+    if force:
+        command = ["docker", "pull", from_image]
+        subprocess.run(command, check=True)
+        command = ["docker", "build", "--no-cache", "-t", image_name, "."]
+    else:
+        command = ["docker", "build", "-t", image_name, "."]
     log_command(command)
     subprocess.run(command, check=True)
     os.remove("Dockerfile")
@@ -177,7 +182,7 @@ def main():
         base_image = build_base_image()
     elif is_image_older_than_week(base_image):
         if input("Base image is older than a week. Rebuild? (y/n): ").lower() == 'y':
-            base_image = build_base_image()
+            base_image = build_base_image(force=True)
     
     logging.info(f"Using base image: {base_image}")
 
