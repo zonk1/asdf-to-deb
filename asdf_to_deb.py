@@ -5,9 +5,8 @@ import os
 import subprocess
 import logging
 import datetime
-import getpass
-import shlex
 import concurrent.futures
+
 try:
     from tools import tools
 except ImportError:
@@ -17,17 +16,20 @@ from shlex import quote as shesc
 
 logging.basicConfig(level=logging.ERROR)
 
+
 def set_log_level(debug):
     if debug:
         logging.getLogger().setLevel(logging.DEBUG)
 
+
 def log_command(command):
     logging.debug(f"Executing command: " + " ".join([shesc(arg) for arg in command]))
+
 
 def build_base_image(force=False):
     timestamp = datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
     image_name = f"asdf-to-deb:{timestamp}"
-    from_image= "debian:unstable"
+    from_image = "debian:unstable"
     dockerfile = f"""
 FROM {from_image}
 
@@ -39,10 +41,10 @@ RUN echo '. $HOME/.asdf/completions/asdf.bash' >> ~/.bashrc
 
 SHELL ["/bin/bash", "-l", "-c"]
 """
-    
+
     with open("Dockerfile", "w") as f:
         f.write(dockerfile)
-    
+
     if force:
         command = ["docker", "pull", from_image]
         subprocess.run(command, check=True)
@@ -54,44 +56,70 @@ SHELL ["/bin/bash", "-l", "-c"]
     os.remove("Dockerfile")
     return image_name
 
+
 def get_latest_base_image():
     command = ["docker", "images", "asdf-to-deb", "--format", "{{.Tag}}"]
     log_command(command)
     result = subprocess.run(command, capture_output=True, text=True, check=True)
-    tags = result.stdout.strip().split('\n')
+    tags = result.stdout.strip().split("\n")
     return f"asdf-to-deb:{max(tags)}" if tags and tags[0] else None
+
 
 def is_image_older_than_week(image_name):
     command = ["docker", "inspect", "-f", "{{.Created}}", image_name]
     log_command(command)
     result = subprocess.run(command, capture_output=True, text=True, check=True)
-    created_date = datetime.datetime.strptime(result.stdout.strip().split('.')[0], "%Y-%m-%dT%H:%M:%S")
+    created_date = datetime.datetime.strptime(
+        result.stdout.strip().split(".")[0], "%Y-%m-%dT%H:%M:%S"
+    )
     return (datetime.datetime.now() - created_date).days > 7
+
 
 def create_container(tool_name, image_name, user):
     container_name = f"asdf-to-deb-{tool_name}"
     uid_command = ["id", "-u", user]
     log_command(uid_command)
-    uid = subprocess.run(uid_command, capture_output=True, text=True, check=True).stdout.strip()
-    
+    uid = subprocess.run(
+        uid_command, capture_output=True, text=True, check=True
+    ).stdout.strip()
+
     gid_command = ["id", "-g", user]
     log_command(gid_command)
-    gid = subprocess.run(gid_command, capture_output=True, text=True, check=True).stdout.strip()
-    
+    gid = subprocess.run(
+        gid_command, capture_output=True, text=True, check=True
+    ).stdout.strip()
+
     command = [
-        "docker", "run", "-d", "--name", container_name,
+        "docker",
+        "run",
+        "-d",
+        "--name",
+        container_name,
         "--cap-drop=all",
-        "--cap-add=CHOWN", "--cap-add=FOWNER", "--cap-add=SETUID", "--cap-add=SETGID",
+        "--cap-add=CHOWN",
+        "--cap-add=FOWNER",
+        "--cap-add=SETUID",
+        "--cap-add=SETGID",
         "--security-opt=no-new-privileges",
-        #f"--user={uid}:{gid}",
+        # f"--user={uid}:{gid}",
         image_name,
-        "tail", "-f", "/dev/null",
+        "tail",
+        "-f",
+        "/dev/null",
     ]
     log_command(command)
     subprocess.run(command, check=True)
 
+
 def docker_exec(container_name, command):
-    docker_command = ["docker", "exec", container_name, "bash", "-c", f"source ~/.bashrc && {command}"]
+    docker_command = [
+        "docker",
+        "exec",
+        container_name,
+        "bash",
+        "-c",
+        f"source ~/.bashrc && {command}",
+    ]
     log_command(docker_command)
     result = subprocess.run(docker_command, capture_output=True, text=True)
     if result.returncode != 0:
@@ -100,8 +128,8 @@ def docker_exec(container_name, command):
         result.check_returncode()  # This will raise a CalledProcessError
     return result
 
-def build_tool(tool_name, tool_plugin_repo, version, target_dir, base_image, user):
 
+def build_tool(tool_name, tool_plugin_repo, version, target_dir, base_image, user):
     container_name = f"asdf-to-deb-{tool_name}"
     create_container(tool_name, base_image, user)
 
@@ -118,7 +146,9 @@ def build_tool(tool_name, tool_plugin_repo, version, target_dir, base_image, use
         # Check if the Debian package already exists
         deb_path = os.path.join(target_dir, f"{tool_name}_{version}_amd64.deb")
         if os.path.exists(deb_path):
-            logging.info(f"Debian package for {tool_name} version {version} already exists in the target directory.")
+            logging.info(
+                f"Debian package for {tool_name} version {version} already exists in the target directory."
+            )
             return None
 
         # Install the tool
@@ -126,7 +156,9 @@ def build_tool(tool_name, tool_plugin_repo, version, target_dir, base_image, use
         docker_exec(container_name, f"asdf global {shesc(tool_name)} {shesc(version)}")
 
         # Create Debian package
-        docker_exec(container_name, f"""
+        docker_exec(
+            container_name,
+            f"""
             mkdir -p /root/debian/DEBIAN /root/debian/usr
             echo "Package: {shesc(tool_name)}" > /root/debian/DEBIAN/control
             echo "Version: {shesc(version)}" >> /root/debian/DEBIAN/control
@@ -137,7 +169,8 @@ def build_tool(tool_name, tool_plugin_repo, version, target_dir, base_image, use
             echo "Description: {shesc(tool_name)} packaged by ASDF" >> /root/debian/DEBIAN/control
             cp -R $HOME/.asdf/installs/{shesc(tool_name)}/{shesc(version)}/* /root/debian/usr/
             dpkg-deb --build /root/debian
-        """)
+        """,
+        )
 
         # Create target directory if it doesn't exist
         os.makedirs(target_dir, exist_ok=True)
@@ -148,7 +181,9 @@ def build_tool(tool_name, tool_plugin_repo, version, target_dir, base_image, use
         log_command(command)
         subprocess.run(command, check=True)
 
-        print(f"Debian package for {tool_name} version {version} has been created: {target_path}")
+        print(
+            f"Debian package for {tool_name} version {version} has been created: {target_path}"
+        )
         return target_path
 
     except subprocess.CalledProcessError as e:
@@ -161,16 +196,42 @@ def build_tool(tool_name, tool_plugin_repo, version, target_dir, base_image, use
         log_command(command)
         subprocess.run(command, check=True)
 
+
 def main():
-    parser = argparse.ArgumentParser(description="Package ASDF tools as Debian packages")
-    parser.add_argument("tool_name", help="ASDF-supported tool to package (if not given config tools.py is used", nargs="?")
-    parser.add_argument("tool_plugin_repo", help="Tool asdf plugin repo for single tool build (optional)", nargs="?")
-    parser.add_argument("-b", action="store_true", help="(re)build and keep base docker image")
+    parser = argparse.ArgumentParser(
+        description="Package ASDF tools as Debian packages"
+    )
+    parser.add_argument(
+        "tool_name",
+        help="ASDF-supported tool to package (if not given config tools.py is used",
+        nargs="?",
+    )
+    parser.add_argument(
+        "tool_plugin_repo",
+        help="Tool asdf plugin repo for single tool build (optional)",
+        nargs="?",
+    )
+    parser.add_argument(
+        "-b", action="store_true", help="(re)build and keep base docker image"
+    )
     parser.add_argument("-v", metavar="version", help="Version of the tools to install")
-    parser.add_argument("-u", metavar="user", default="asdf", help="User to remap root in container to")
+    parser.add_argument(
+        "-u", metavar="user", default="asdf", help="User to remap root in container to"
+    )
     parser.add_argument("-d", action="store_true", help="Enable debug level logs")
-    parser.add_argument("-t", metavar="target_dir", default="/home/zonk/.scratchpad/asdf-to-deb-debs/", help="Target directory for the created deb packages")
-    parser.add_argument("-p", metavar="parallel", type=int, default=8, help="Number of parallel builds (default: 4)")
+    parser.add_argument(
+        "-t",
+        metavar="target_dir",
+        default="/home/zonk/.scratchpad/asdf-to-deb-debs/",
+        help="Target directory for the created deb packages",
+    )
+    parser.add_argument(
+        "-p",
+        metavar="parallel",
+        type=int,
+        default=8,
+        help="Number of parallel builds (default: 4)",
+    )
     args = parser.parse_args()
 
     set_log_level(args.d)
@@ -178,12 +239,14 @@ def main():
     base_image = get_latest_base_image()
 
     if not base_image or args.b:
-        logging.info("Base image not found or rebuild requested. Building base image...")
+        logging.info(
+            "Base image not found or rebuild requested. Building base image..."
+        )
         base_image = build_base_image()
     elif is_image_older_than_week(base_image):
-        if input("Base image is older than a week. Rebuild? (y/n): ").lower() == 'y':
+        if input("Base image is older than a week. Rebuild? (y/n): ").lower() == "y":
             base_image = build_base_image(force=True)
-    
+
     logging.info(f"Using base image: {base_image}")
 
     if args.tool_name:
@@ -191,15 +254,25 @@ def main():
     elif tools:
         tools_to_build = tools
     else:
-        logging.error("No tool specified and tools.py not found or empty. Please specify a tool or create a valid tools.py file.")
+        logging.error(
+            "No tool specified and tools.py not found or empty. Please specify a tool or create a valid tools.py file."
+        )
         return
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=args.p) as executor:
         futures = []
         for tool_name, tool_plugin_repo in tools_to_build:
-            future = executor.submit(build_tool, tool_name, tool_plugin_repo, args.v, args.t, base_image, args.u)
+            future = executor.submit(
+                build_tool,
+                tool_name,
+                tool_plugin_repo,
+                args.v,
+                args.t,
+                base_image,
+                args.u,
+            )
             futures.append(future)
-        
+
         for future in concurrent.futures.as_completed(futures):
             try:
                 result = future.result()
@@ -210,6 +283,6 @@ def main():
             except Exception as e:
                 logging.error(f"An error occurred: {str(e)}")
 
+
 if __name__ == "__main__":
     main()
-
