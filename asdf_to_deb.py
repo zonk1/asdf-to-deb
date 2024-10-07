@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 
 import argparse
+import concurrent.futures
+import datetime
+import glob
+import logging
 import os
 import subprocess
-import logging
-import datetime
-import concurrent.futures
 
 try:
     from tools import tools
@@ -176,6 +177,9 @@ def build_tool(tool_name, tool_plugin_repo, version, target_dir, base_image, use
         os.makedirs(target_dir, exist_ok=True)
 
         # Copy the Debian package to the host
+        cleanup_path = os.path.join(target_dir, f"{tool_name}_*_amd64.deb")
+        for old_deb in glob.glob(cleanup_path):
+            os.unlink(old_deb)
         target_path = os.path.join(target_dir, f"{tool_name}_{version}_amd64.deb")
         command = ["docker", "cp", f"{container_name}:/root/debian.deb", target_path]
         log_command(command)
@@ -222,7 +226,7 @@ def main():
     parser.add_argument(
         "-t",
         metavar="target_dir",
-        default="/home/zonk/.scratchpad/asdf-to-deb-debs/",
+        default=os.path.expanduser("~/.scratchpad/asdf-to-deb-debs/"),
         help="Target directory for the created deb packages",
     )
     parser.add_argument(
